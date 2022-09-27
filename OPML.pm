@@ -69,7 +69,8 @@ my %topuri = (
 
 # sort order for home menu items - -1 means hide item
 my %homeItems = (
-	'made-for-x' => 1,
+	'recently-played' => 1,
+	'made-for-x' => 2,
 	'podcast-recs-show-affinity-wrapper' => 5,
 	'NMF-NRFY' => 10,
 	'home-personalized[favorite-albums]' => 20,
@@ -78,7 +79,6 @@ my %homeItems = (
 	'uniquely-yours-shelf' => 200,
 	'recently-updated-playlists[0]' => -1,
 	'recently-updated-playlists' => -1,
-	'recently-played' => -1,
 );
 
 my $nextNameCheck = 0;
@@ -208,143 +208,178 @@ sub handleFeed {
 
 		# Build main menu structure
 		my $items = [];
+		my $params = $args->{params};
 
-		if ( hasRecentSearches() ) {
-			push @{$items}, {
-				name  => cstring($client, 'SEARCH'),
-				type  => 'link',
-				image => IMG_SEARCH,
-				url   => \&recentSearches,
-			};
-		}
-		else {
-			push @{$items}, {
-				name  => cstring($client, 'SEARCH'),
-				type  => 'search',
-				image => IMG_SEARCH,
-				url   => \&search,
-			};
-		}
+		if ( $params->{action} ) {
 
-		push @{$items}, {
-			name  => cstring($client, 'PLUGIN_SPOTTY_WHATS_NEW'),
-			type  => 'link',
-			image => IMG_NEWS,
-			url   => \&whatsNew
-		},
-		{
-			name  => cstring($client, 'PLUGIN_SPOTTY_TOP_TRACKS'),
-			type  => 'playlist',
-			image => IMG_TOPTRACKS,
-			url   => \&playlist,
-			passthrough => [{
-				uri => $topuri{$spotty->country()} || $topuri{XX}
-			}]
-		},
-		{
-			name  => cstring($client, 'PLUGIN_SPOTTY_GENRES_MOODS'),
-			type  => 'link',
-			image => IMG_GENRES,
-			url   => \&categories
-		};
+			if ($params->{action} eq 'playlist') {
+				return playlist($client, $cb, $params, $args);
+			}
+			elsif ($params->{action} eq 'album') {
+				return album($client, $cb, $params, $args);
+			}
+			elsif ($params->{action} eq 'artist') {
+				return artist($client, $cb, $params, $args);
+			}
+			elsif ($params->{action} eq 'show') {
+				return show($client, $cb, $params, $args);
+			}
+			elsif ($params->{action} =~ /^(track|episode)$/) {
+				return Plugins::Spotty::Plugin->getAPIHandler($client)->trackCached(sub {
+					$cb->({ items => trackList($client, [shift]) });
+				}, $args->{uri});
+			}
+			else {
+				$cb->({
+					name => "error",
+					items => [{
+						name => "no action found",
+						type => 'text'
+					}]
+				});
 
-		if ( $message && $lists && ref $lists && scalar @$lists ) {
-			push @$items, {
-				name  => $message,
-				image => IMG_INBOX,
-				items => playlistList($client, $lists)
-			};
-		}
-
-		my $personalItems = [{
-			name  => cstring($client, 'ALBUMS'),
-			type  => 'link',
-			image => IMG_ALBUM,
-			url  => \&myAlbums,
-		},{
-			name  => cstring($client, 'ARTISTS'),
-			type  => 'link',
-			image => IMG_ARTIST,
-			url   => \&myArtists
-		},{
-			name  => cstring($client, 'PLAYLISTS'),
-			type  => 'link',
-			image => IMG_PLAYLIST,
-			url   => \&playlists
-		}];
-
-		if ( Plugins::Spotty::Helper->getCapability('podcasts') ) {
-			push @$personalItems, {
-				name  => cstring($client, 'PLUGIN_SPOTTY_SHOWS'),
-				type  => 'link',
-				image => IMG_PODCAST,
-				url   => \&shows
-			};
-		}
-
-		# only give access to the tracks list if the user is using his own client ID
-		if ( _enableAdvancedFeatures() ) {
-			unshift @$personalItems, {
-				name  => cstring($client, 'PLUGIN_SPOTTY_SONGS_LIST'),
-				type  => 'playlist',
-				image => IMG_PLAYLIST,
-				url  => \&mySongs,
+				return;
 			}
 		}
+		else {
 
-		my $homeItem = {
-			name  => cstring($client, 'PLUGIN_SPOTTY_HOME'),
-			type  => 'link',
-			image => IMG_HOME,
-			url   => \&home,
-		};
+			if ( hasRecentSearches() ) {
+				push @{$items}, {
+					name  => cstring($client, 'SEARCH'),
+					type  => 'link',
+					image => IMG_SEARCH,
+					url   => \&recentSearches,
+				};
+			}
+			else {
+				push @{$items}, {
+					name  => cstring($client, 'SEARCH'),
+					type  => 'search',
+					image => IMG_SEARCH,
+					url   => \&search,
+				};
+			}
 
-		if ( !$prefs->get('accountSwitcherMenu') && Plugins::Spotty::AccountHelper->hasMultipleAccounts() ) {
-			my $credentials = Plugins::Spotty::AccountHelper->getAllCredentials();
+			push @{$items}, {
+				name  => cstring($client, 'PLUGIN_SPOTTY_WHATS_NEW'),
+				type  => 'link',
+				image => IMG_NEWS,
+				url   => \&whatsNew
+			},
+			{
+				name  => cstring($client, 'PLUGIN_SPOTTY_TOP_TRACKS'),
+				type  => 'playlist',
+				image => IMG_TOPTRACKS,
+				url   => \&playlist,
+				passthrough => [{
+					uri => $topuri{$spotty->country()} || $topuri{XX}
+				}]
+			},
+			{
+				name  => cstring($client, 'PLUGIN_SPOTTY_GENRES_MOODS'),
+				type  => 'link',
+				image => IMG_GENRES,
+				url   => \&categories
+			};
 
-			foreach my $name ( sort {
-				lc($a) cmp lc($b)
-			} keys %$credentials ) {
+			if ( $message && $lists && ref $lists && scalar @$lists ) {
 				push @$items, {
-					name => Plugins::Spotty::AccountHelper->getDisplayName($name),
-					items => [ map {{
-						name => $_->{name},
-						type => $_->{type},
-						image => $_->{image},
-						url => \&_withAccount,
-						passthrough => [{
-							name => $name,
-							cb => $_->{url}
-						}]
-					}} $homeItem, @$personalItems ],
+					name  => $message,
+					image => IMG_INBOX,
+					items => playlistList($client, $lists)
+				};
+			}
+
+			my $personalItems = [{
+				name  => cstring($client, 'ALBUMS'),
+				type  => 'link',
+				image => IMG_ALBUM,
+				url  => \&myAlbums,
+			},{
+				name  => cstring($client, 'ARTISTS'),
+				type  => 'link',
+				image => IMG_ARTIST,
+				url   => \&myArtists
+			},{
+				name  => cstring($client, 'PLAYLISTS'),
+				type  => 'link',
+				image => IMG_PLAYLIST,
+				url   => \&playlists
+			}];
+
+			if ( Plugins::Spotty::Helper->getCapability('podcasts') ) {
+				push @$personalItems, {
+					name  => cstring($client, 'PLUGIN_SPOTTY_SHOWS'),
+					type  => 'link',
+					image => IMG_PODCAST,
+					url   => \&shows
+				};
+			}
+
+			# only give access to the tracks list if the user is using his own client ID
+			if ( _enableAdvancedFeatures() ) {
+				unshift @$personalItems, {
+					name  => cstring($client, 'PLUGIN_SPOTTY_SONGS_LIST'),
+					type  => 'playlist',
+					image => IMG_PLAYLIST,
+					url  => \&mySongs,
+				}
+			}
+
+			my $homeItem = {
+				name  => cstring($client, 'PLUGIN_SPOTTY_HOME'),
+				type  => 'link',
+				image => IMG_HOME,
+				url   => \&home,
+			};
+
+			if ( !$prefs->get('accountSwitcherMenu') && Plugins::Spotty::AccountHelper->hasMultipleAccounts() ) {
+				my $credentials = Plugins::Spotty::AccountHelper->getAllCredentials();
+
+				foreach my $name ( sort {
+					lc($a) cmp lc($b)
+				} keys %$credentials ) {
+					push @$items, {
+						name => Plugins::Spotty::AccountHelper->getDisplayName($name),
+						items => [ map {{
+							name => $_->{name},
+							type => $_->{type},
+							image => $_->{image},
+							url => \&_withAccount,
+							passthrough => [{
+								name => $name,
+								cb => $_->{url}
+							}]
+						}} $homeItem, @$personalItems ],
+						image => IMG_ACCOUNT,
+					};
+				}
+			}
+			else {
+				unshift @$items, $homeItem;
+				push @$items, @$personalItems;
+			}
+
+			push @$items, {
+				name  => cstring($client, 'PLUGIN_SPOTTY_TRANSFER'),
+				type  => 'link',
+				image => IMG_PLAYLIST,
+				url   => \&transferPlaylist
+			};
+
+			if ( $prefs->get('accountSwitcherMenu') && Plugins::Spotty::AccountHelper->hasMultipleAccounts() ) {
+				push @$items, {
+					name  => cstring($client, 'PLUGIN_SPOTTY_ACCOUNT'),
+					items => [{
+						name => Plugins::Spotty::AccountHelper->getDisplayName($spotty->username),
+						type => 'text'
+					},{
+						name => cstring($client, 'PLUGIN_SPOTTY_SELECT_ACCOUNT'),
+						url   => \&selectAccount,
+					}],
 					image => IMG_ACCOUNT,
 				};
 			}
-		}
-		else {
-			unshift @$items, $homeItem;
-			push @$items, @$personalItems;
-		}
-
-		push @$items, {
-			name  => cstring($client, 'PLUGIN_SPOTTY_TRANSFER'),
-			type  => 'link',
-			image => IMG_PLAYLIST,
-			url   => \&transferPlaylist
-		};
-
-		if ( $prefs->get('accountSwitcherMenu') && Plugins::Spotty::AccountHelper->hasMultipleAccounts() ) {
-			push @$items, {
-				name  => cstring($client, 'PLUGIN_SPOTTY_ACCOUNT'),
-				items => [{
-					name => Plugins::Spotty::AccountHelper->getDisplayName($spotty->username),
-					type => 'text'
-				},{
-					name => cstring($client, 'PLUGIN_SPOTTY_SELECT_ACCOUNT'),
-					url   => \&selectAccount,
-				}],
-				image => IMG_ACCOUNT,
-			};
 		}
 
 		$cb->({
@@ -948,9 +983,10 @@ sub _gotArtistData {
 
 	# Split albums into compilations (albums with a different primary artist name), singles, and regular albums
 	# XXX Need a better way to determine album type. Unfortunately album->{album_type} doesn't work
-	my $albums = albumList($client, [ grep { $_->{album_type} ne 'single' && $_->{artist} eq $artist->{name} } @{ $artistInfo->{albums} } ]);
-	my $singles = albumList($client, [ grep { $_->{album_type} eq 'single' } @{ $artistInfo->{albums} } ]);
-	my $comps  = albumList($client, [ grep { $_->{album_type} ne 'single' && $_->{artist} ne $artist->{name} } @{ $artistInfo->{albums} } ]);
+	my $albums = albumList($client, [ grep { $_->{album_group} eq 'album' } @{ $artistInfo->{albums} } ]);
+	my $singles = albumList($client, [ grep { $_->{album_group} eq 'single' } @{ $artistInfo->{albums} } ]);
+	my $comps  = albumList($client, [ grep { $_->{album_group} eq 'compilation' } @{ $artistInfo->{albums} } ]);
+	my $appears  = albumList($client, [ grep { $_->{album_group} eq 'appears_on' } @{ $artistInfo->{albums} } ]);
 
 	if ( scalar @$albums ) {
 		push @$items, {
@@ -970,6 +1006,13 @@ sub _gotArtistData {
 		push @$items, {
 			name  => cstring($client, 'PLUGIN_SPOTTY_COMPILATIONS'),
 			items => $comps,
+		};
+	}
+
+	if ( scalar @$appears ) {
+		push @$items, {
+			name  => cstring($client, 'PLUGIN_SPOTTY_APPEARS_ON'),
+			items => $appears,
 		};
 	}
 
@@ -1000,6 +1043,7 @@ sub _gotArtistData {
 	},{
 		name => cstring($client, 'PLUGIN_SPOTTY_FOLLOW_ARTIST'),
 		url  => \&followArtist,
+		on_select => 'like',
 		passthrough => [{
 			name => $artist->{name},
 			uri => $artistURI
@@ -1007,7 +1051,11 @@ sub _gotArtistData {
 		nextWindow => 'parent'
 	};
 
-	$cb->({ items => $items });
+	$cb->({
+		name => $artist,
+		fetched => $artist,
+		items => $items 
+	});
 
 	# free some memory
 	$client->pluginData(artistInfo => {});
@@ -1211,6 +1259,8 @@ sub trackList {
 				line1     => $title,
 				line2     => "${artist} \x{2022} ${album}",
 				image     => $image || IMG_TRACK,
+				type	  => 'track',
+				parser     => $track,
 			};
 
 			if ($track->{explicit} && $filterExplicitContent) {
@@ -1331,8 +1381,10 @@ sub _artistItem {
 		name => $artist->{name},
 		image => $artist->{image} || IMG_ARTIST,
 		url  => \&artist,
+		type => 'artist',
 		playlist => $artist->{uri},
 		favorites_url => $artist->{uri},
+		parser => $artist,
 		passthrough => [{
 			uri => $artist->{uri},
 			myAlbumsOnly => $myAlbumsOnly ? 1 : 0,
@@ -1450,6 +1502,8 @@ sub episodesList {
 				line1 => join(' - ', $episode->{release_date}, $title),
 				line2 => substr($episode->{description}, 0, 512),		# longer descriptions would wrap, rendering the screen unreadable
 				image => $image || IMG_TRACK,
+				type => 'track',
+				parser => $episode,
 			};
 
 			if ($episode->{explicit} && $filterExplicitContent) {
