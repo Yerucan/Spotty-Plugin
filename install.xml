@@ -1,7 +1,7 @@
 <?xml version='1.0' standalone='yes'?>
 <extension>
-	<name>PLUGIN_SPOTTY_NAME</name>
-	<creator>Michael Herger</creator>
+	<name>PLUGIN_SPOTTY_NAME Edit</name>
+	<creator>Michael Herger / Yerucan</creator>
 	<defaultState>enabled</defaultState>
 	<description>PLUGIN_SPOTTY</description>
 	<email>slim@herger.net</email>
