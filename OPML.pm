@@ -395,15 +395,15 @@ sub handleFeed {
 sub home {
 	my ($client, $cb, $params) = @_;
 
+	my $ignoreItems = $prefs->get('ignoreHomeItems');
+
 	Plugins::Spotty::Plugin->getAPIHandler($client)->home(sub {
 		my ($homeItems) = @_;
 
 		my $items = [];
 
-		foreach my $group ( sort {
-			($homeItems{$a->{id}} || 999) <=> ($homeItems{$b->{id}} || 999);
-		} @$homeItems ) {
-			if ($group->{name} && $group->{href} && ($homeItems{$group->{id}} || 0) > -1) {
+		foreach my $group ( @{sortHomeItems($homeItems)} ) {
+			if ($group->{name} && $group->{href} && !$ignoreItems->{$group->{id}}) {
 				my $item = {
 					type => 'link',
 					name => $group->{name},
@@ -432,6 +432,12 @@ sub home {
 
 		$cb->({ items => $items });
 	});
+}
+
+sub sortHomeItems {
+	return [ sort {
+		($homeItemsWeights{$a->{id}} || 999) <=> ($homeItemsWeights{$b->{id}} || 999);
+	} @{$_[0]} ];
 }
 
 sub browseWebUrl {
@@ -1601,6 +1607,8 @@ sub trackInfoMenu {
 			uri    => CAN_EXTID && $track->extid,
 		};
 	}
+
+	$args = undef unless $args->{title} || $args->{uri};
 
 	return _objInfoMenu($client, $args);
 }

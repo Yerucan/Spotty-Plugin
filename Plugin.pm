@@ -59,12 +59,16 @@ sub initPlugin {
 		bitrate => 320,
 		iconCode => \&_initIcon,
 		tracksSincePurge => 0,
+		ignoreHomeItems => {
+			'recently-updated-playlists[0]' => -1,
+			'recently-updated-playlists' => -1,
+			'recently-played' => -1,
+		},
 		accountSwitcherMenu => 0,
 		disableDiscovery => 0,
 		checkDaemonConnected => 0,
 		displayNames => {},
 		helper => '',
-		webTokens => {},
 		sortSongsAlphabetically => 1,
 		sortAlbumsAlphabetically => 1,
 		sortArtistsAlphabetically => 1,
@@ -171,7 +175,7 @@ sub postinitPlugin { if (main::TRANSCODING) {
 		}
 	}
 
-	if ( Slim::Utils::PluginManager->isEnabled('Slim::Plugin::OnlineLibrary::Plugin') ) {
+	if ( CAN_IMPORTER && Slim::Utils::PluginManager->isEnabled('Slim::Plugin::OnlineLibrary::Plugin') ) {
 		Slim::Plugin::OnlineLibrary::Plugin->addLibraryIconProvider('spotify', '/plugins/Spotty/html/images/icon.png');
 	}
 

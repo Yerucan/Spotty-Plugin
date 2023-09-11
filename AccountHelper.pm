@@ -64,19 +64,6 @@ sub getAccount {
 	return $id;
 }
 
-sub getWebToken {
-	my ($class, $client) = @_;
-
-	my $userId = $class->getAccount($client);
-
-	if ($userId) {
-		my $webTokens = $prefs->get('webTokens') || {};
-		return $webTokens->{$userId};
-	}
-
-	return;
-}
-
 sub getSomeAccount {
 	my ($class) = @_;
 
@@ -130,6 +117,8 @@ sub cacheFolders {
 				push @folders, $subDir;
 			}
 		}
+
+		closedir(DIR);
 	}
 
 	return \@folders;
@@ -217,6 +206,8 @@ sub purgeCache {
 			$credsCache = undef;
 		}
 	}
+
+	closedir(DIR);
 }
 
 sub purgeAudioCacheAfterXTracks {
@@ -260,6 +251,8 @@ sub purgeAudioCache {
 
 				unlink $tmpFile if $ignoreTimeStamp || (time() - $mtime > CACHE_PURGE_MAX_AGE);
 			}
+
+			closedir(DIR);
 
 			main::INFOLOG && $log->is_info && $log->info("Audio cache cleanup done!");
 		}

@@ -15,13 +15,11 @@
 		<div>[% "PLUGIN_SPOTTY_CLIENT_ID_DESC" | string %]</div>
 	[% END; END %]
 
-	[% IF webTokens; webTokensDesc = 'PLUGIN_SPOTTY_WEB_TOKEN_DESC'; END %]
-	[% IF credentials; WRAPPER setting desc=webTokensDesc %]
+	[% IF credentials; WRAPPER setting desc="" %]
 		<table>
 			<tr>
 				<th>[% "PLUGIN_SPOTTY_ACCOUNT" | string %][% "COLON" | string %]</th>
 				<th>[% "PLUGIN_SPOTTY_IMPORT_LIBRARY"| string %][% "COLON" | string %]</th>
-				[% IF webTokens %]<th>[% "PLUGIN_SPOTTY_WEB_TOKEN" | string %][% "COLON" | string %]</th>[% END %]
 				<th></th>
 			</tr>
 		[% FOREACH creds = credentials %]
@@ -34,9 +32,6 @@
 						<option [% IF dontImportAccounts.$accountId %]selected [% END %]value="1">[% "NO" | string %]</option>
 					</select>
 				</td>
-				[% IF webTokens %]<td style="vertical-align: middle; padding-right: 10px">
-					<input type="text" name="pref_webtoken_[% accountId %]" value="[% spottyWebTokens.$accountId %]" class="stdedit" size="80">
-				</td>[% END %]
 				<td style="vertical-align: middle">
 					<input name="delete_[% accountId %]" type="submit" value="[% "DELETE" | string %]" class="stdclick" />
 				</td>
@@ -55,6 +50,17 @@
 			<label for="pref_accountSwitcherMenu1" class="stdlabel">[% 'PLUGIN_SPOTTY_SIMPLIFIED_ACCOUNT_SWITCHING_OFF' | getstring %]</label><br/>
 			<input type="radio" name="pref_accountSwitcherMenu" id="pref_accountSwitcherMenu0" value="0" [% IF NOT prefs.pref_accountSwitcherMenu %]checked="checked"[% END %] />
 			<label for="pref_accountSwitcherMenu0" class="stdlabel">[% 'PLUGIN_SPOTTY_SIMPLIFIED_ACCOUNT_SWITCHING_ON' | getstring %]</label><br/>
+		[% END %]
+	[% END %]
+
+	[% IF homeItems %]
+		[% WRAPPER setting title="PLUGIN_SPOTTY_HOME_ITEMS" desc="PLUGIN_SPOTTY_HOME_DESC" %]
+			[% FOREACH homeItem IN homeItems %]
+				<div>
+					<input name="[% "pref_homeItem_" _ homeItem.id %]" id="[% "pref_homeItem_" _ homeItem.id %]" type="checkbox" [% IF !homeItem.disabled %] checked [% END %]>
+					<label for="[% "pref_homeItem_" _ homeItem.id %]">[% homeItem.name %]</label>
+				</div>
+			[% END %]
 		[% END %]
 	[% END %]
 
@@ -101,7 +107,7 @@
 				<option [% IF !prefs.$varName %]selected [% END %]value="0">[% "PLUGIN_SPOTTY_PLAYLIST_TRACKS" | string %][% "COLON" | string %] [% "STANDARD" | string %]</option>
 			</select>
 		</div>
-[% END %]
+	[% END %]
 
 	[% WRAPPER setting title="PLUGIN_SPOTTY_PLAYLIST_FOLDERS" desc="" %]
 		<input name="clearPlaylistFolderCache" id="clearPlaylistFolderCache" type="checkbox">
